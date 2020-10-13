@@ -289,3 +289,87 @@ func (h handler) commitPhase(w *ResponseWriter, resp Response) {
 		}
 	}
 }
+
+type ResponseWriter struct {
+	d  Dispatcher
+	rw http.ResponseWriter
+
+	// Having this field unexported is essential for security. Otherwise one can
+	// easily overwrite the struct bypassing all our safety guarantees.
+	header  Header
+	handler handler
+	req     *IncomingRequest
+
+	written bool
+
+	s WritingStage
+}
+
+// 1. mux -> Before -> Write -> Commit -> Write
+func (w *ResponseWriter) Write(resp Response) Result {
+	// Stage == commitStage{}
+	w.State, w.Stage = w.Stage.Write(resp)
+}
+
+type beforeStage struct{}
+
+func (stg *beforeStage) Write(resp Response) (State, Stage, Result) {
+}
+
+type commitStage struct {
+}
+
+type State struct {
+	Writing       bool
+	InternalError error
+}
+
+type WritingStage interface {
+	Name() string // for debug only for now? TODO: maybe drop this?
+	Write(*State, Response) (WritingStage, Result)
+	Error(*State, int)
+}
+
+// Stage responsibilities (possible):
+// 1. tells you in which "stage" you are (i.e. After, Commit)
+// 2. based on (current state, next event) returns the next stage
+// 3. performs writes
+
+type Magic interface {
+}
+
+// Mux calls Magic.Before -> what should be the next step
+//  - continue
+//  - Write has been initiated -> run Commit phase
+//  - Error has been initiated -> run OnError phase
+
+// Mux -> Handler -> (ResponseWriter.Write -> Magic.Write)
+//  - if everything is ok: run the Commit phase
+//  - if Magic.Write/Error has returned before -> return Result{WrittenTwice}
+
+// Mux -> Handler -> safehttp.ResponseWriter.Write -> Magic.Write -> Magic.Commit
+//   -> Interceptor.Commit -> safehttp.ResponseWriter.Write
+//
+// NOTE: We didn't start writing anything yet to the socket! Dispatcher has not been called!
+//
+// ResponseWriter should be changed into a internal error 500 response writer?
+
+
+func (m *Mux) ServerHTTP() {
+	for _ := range x {
+		m.Magic.Before()
+	}
+
+	r := Handler(...)
+
+	// ProcessResult what it does:
+	// -- r indicates it has been written then do nothing
+	// -- r is a non-written, run the commit phase with an empty 200
+	m.Magic.ProcessResult(r)
+
+	m.Magic.After()
+
+}
+
+// Condition: Handler returns without calling Write -> Create Resp
+// Magic.Write -> Magic.Commit -> Interceptor.Commit -> safehttp.ResponseWriter.Write
