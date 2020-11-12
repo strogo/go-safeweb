@@ -157,6 +157,7 @@ func (w *responseWriter) NoContent() Result {
 //
 // If the ResponseWriter has already been written to, then this method will panic.
 func (w *responseWriter) WriteError(code StatusCode) Result {
+	// TODO: accept custom error responses that need to go through the dispatcher.
 	if w.writtenError {
 		panic("ResponseWriter.WriteError called twice")
 	}
