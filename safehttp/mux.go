@@ -252,11 +252,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // the Commit phase.
 func (h handler) commitPhase(w *responseWriter, resp Response) {
 	for i := len(h.interceps) - 1; i >= 0; i-- {
-		it := h.interceps[i]
-		it.Commit(w, w.req, resp)
-		if w.written {
-			return
-		}
+		h.interceps[i].Commit(w, w.req, resp)
 	}
 }
 
@@ -268,7 +264,6 @@ func (h handler) commitPhase(w *responseWriter, resp Response) {
 // in the OnError phase will result in an irrecoverable error.
 func (h handler) errorPhase(w *responseWriter, resp Response) {
 	for i := len(h.interceps) - 1; i >= 0; i-- {
-		it := h.interceps[i]
-		it.OnError(w, w.req, resp)
+		h.interceps[i].OnError(w, w.req, resp)
 	}
 }

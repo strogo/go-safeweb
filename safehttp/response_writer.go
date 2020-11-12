@@ -72,7 +72,9 @@ type responseWriter struct {
 	header  Header
 	handler handler
 	req     *IncomingRequest
-	written bool
+
+	written      bool
+	writtenError bool
 }
 
 // NewResponseWriter creates a ResponseWriter from a safehttp.Dispatcher, an
@@ -117,12 +119,8 @@ func (w *responseWriter) Write(resp Response) Result {
 	if w.written {
 		panic("ResponseWriter was already written to")
 	}
+	w.written = true
 	w.handler.commitPhase(w, resp)
-	if w.written {
-		return Result{}
-	}
-
-	w.markWritten()
 
 	ct, err := w.d.ContentType(resp)
 	if err != nil {
@@ -130,11 +128,10 @@ func (w *responseWriter) Write(resp Response) Result {
 	}
 	w.rw.Header().Set("Content-Type", ct)
 
-	if w.code != 0 {
-		w.rw.WriteHeader(int(w.code))
-	} else {
-		w.rw.WriteHeader(int(StatusOK))
+	if w.code == 0 {
+		w.code = StatusOK
 	}
+	w.rw.WriteHeader(int(w.code))
 
 	if err := w.d.Write(w.rw, resp); err != nil {
 		panic(err)
@@ -149,11 +146,8 @@ func (w *responseWriter) NoContent() Result {
 	if w.written {
 		panic("ResponseWriter was already written to")
 	}
+	w.written = true
 	w.handler.commitPhase(w, NoContentResponse{})
-	if w.written {
-		return Result{}
-	}
-	w.markWritten()
 	w.rw.WriteHeader(int(StatusNoContent))
 	return Result{}
 }
@@ -163,7 +157,11 @@ func (w *responseWriter) NoContent() Result {
 //
 // If the ResponseWriter has already been written to, then this method will panic.
 func (w *responseWriter) WriteError(code StatusCode) Result {
-	w.markWritten()
+	if w.writtenError {
+		panic("ResponseWriter.WriteError called twice")
+	}
+	w.written = true
+	w.writtenError = true
 	resp := &ErrorResponse{Code: code}
 	w.handler.errorPhase(w, resp)
 	http.Error(w.rw, http.StatusText(int(resp.Code)), int(resp.Code))
@@ -177,18 +175,12 @@ func (w *responseWriter) Redirect(r *IncomingRequest, url string, code StatusCod
 	if code < 300 || code >= 400 {
 		panic("wrong method called")
 	}
-	w.markWritten()
-	http.Redirect(w.rw, r.req, url, int(code))
-	return Result{}
-}
-
-// markWritten ensures that the ResponseWriter is only written to once by panicking
-// if it is written more than once.
-func (w *responseWriter) markWritten() {
 	if w.written {
 		panic("ResponseWriter was already written to")
 	}
 	w.written = true
+	http.Redirect(w.rw, r.req, url, int(code))
+	return Result{}
 }
 
 // Header returns the collection of headers that will be set
