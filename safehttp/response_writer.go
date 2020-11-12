@@ -96,21 +96,6 @@ func newResponseWriter(d Dispatcher, rw http.ResponseWriter, req *IncomingReques
 	}
 }
 
-// Result is the result of writing an HTTP response.
-//
-// Use ResponseWriter methods to obtain it.
-type Result struct{}
-
-// NotWritten returns a Result which indicates that nothing has been written yet. It
-// can be used in all functions that return a Result, such as in the ServeHTTP method
-// of a Handler or in the Before method of an Interceptor. When returned, NotWritten
-// indicates that the writing of the response should take place later. When this
-// is returned by the Before method in Interceptors the next Interceptor in line
-// is run. When this is returned by a Handler, a 204 No Content response is written.
-func NotWritten() Result {
-	return Result{}
-}
-
 // Write dispatches the response to the Dispatcher. This will be written to the
 // underlying http.ResponseWriter if the Dispatcher decides it's safe to do so.
 //
@@ -240,4 +225,19 @@ type Dispatcher interface {
 	// provided Response should not be written to the http.ResponseWriter
 	// because it's unsafe.
 	Write(rw http.ResponseWriter, resp Response) error
+}
+
+// Result is the result of writing an HTTP response.
+//
+// Use ResponseWriter methods to obtain it.
+type Result struct{}
+
+// NotWritten returns a Result which indicates that nothing has been written yet. It
+// can be used in all functions that return a Result, such as in the ServeHTTP method
+// of a Handler or in the Before method of an Interceptor. When returned, NotWritten
+// indicates that the writing of the response should take place later. When this
+// is returned by the Before method in Interceptors the next Interceptor in line
+// is run. When this is returned by a Handler, a 204 No Content response is written.
+func NotWritten() Result {
+	return Result{}
 }
