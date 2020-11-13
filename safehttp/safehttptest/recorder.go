@@ -50,6 +50,7 @@ func NewResponseRecorderFromDispatcher(d safehttp.Dispatcher) *ResponseRecorder 
 	return &ResponseRecorder{
 		rw:             rw,
 		b:              &b,
+		// TODO: this is all broken, change it.
 		ResponseWriter: safehttp.BrokenNewTask(rw, d),
 	}
 }
